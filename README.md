@@ -1,0 +1,2 @@
+# StressVisualizer
+Statics truss problem
