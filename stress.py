@@ -30,8 +30,13 @@ def cos_theta( a: vec2, b: vec2 ):
     return a.dot( b )
 
 def sin_theta( a: vec2, b: vec2 ):
-    ab = vec2( a.x * b.x, a.y * b.y )
-    return math.sqrt( ab.length_squared() - a.dot( b )**2 ) / ab.length()
+    a_len = a.length()
+    b_len = b.length()
+    u = ( a_len * b_len )
+    v = a.dot( b )
+    return math.sqrt( u*u - v*v ) / u
+
+print( sin_theta( vec2( 1, 0 ), vec2( 0, 1 ) ) )
 
 running = True
 
