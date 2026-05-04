@@ -11,17 +11,41 @@ FPS = 60
 BLACK = ( 0, 0, 0 )
 WHITE = ( 255, 255, 255 )
 YELLOW = ( 255, 255, 0 )
+LIGHT_BLUE = ( 60, 220, 255 )
+MAGENTA = ( 255, 0, 255 )
+DARK_GRAY = ( 20, 20, 20 )
+GRAY = ( 100, 100, 100 )
+RED = ( 255, 0, 0 )
 
 FONT_SIZE = 32
+
+CURSOR_SIZE = 32
+CURSOR_WIDTH = 2
+
+GRID_COLOR = DARK_GRAY
+GRID_CELL_SIZE = 32
+
 SELECTION_PANEL_PADDING = 1
 SELECTION_PANEL_OFFSET = 5
 SELECTION_PANEL_COLOR = WHITE
 SELECTION_PANEL_SELECTED_COLOR = YELLOW
 
+POINT_COLOR = WHITE
+POINT_HOVER_COLOR = LIGHT_BLUE
+POINT_SELECTED_COLOR = MAGENTA
+POINT_RADIUS = 6
+POINT_SQR_RADIUS = POINT_RADIUS*POINT_RADIUS
+
+CONNECTION_COLOR = GRAY
+CONNECTION_STRESSED_COLOR = RED
+
 pg.init()
 
 pg.display.set_caption( TITLE )
 screen = pg.display.set_mode( ( WIDTH, HEIGHT ) )
+pg.mouse.set_visible( False )
+
+
 font = pg.font.Font( size=FONT_SIZE )
 clock = pg.time.Clock()
 
@@ -51,6 +75,55 @@ class Element:
     def draw( self ):
         pass
 
+class Grid(Element):
+    def __init__( self ):
+        super().__init__()
+
+        self.rows = math.ceil( HEIGHT / GRID_CELL_SIZE )
+        self.cols = math.ceil( WIDTH / GRID_CELL_SIZE )
+
+    @staticmethod
+    def snap_to_grid( pos: vec2 ):
+        pos.x = round( pos.x / GRID_CELL_SIZE ) * GRID_CELL_SIZE
+        pos.y = round( pos.y / GRID_CELL_SIZE ) * GRID_CELL_SIZE
+    
+    def update( self ):
+        pass
+
+    def draw( self ):
+        for i in range( self.cols ):
+            pg.draw.line( screen, GRID_COLOR, ( i*GRID_CELL_SIZE, 0 ), ( i*GRID_CELL_SIZE, HEIGHT ), 1 )
+        for j in range( self.rows ):
+            pg.draw.line( screen, GRID_COLOR, ( 0, j*GRID_CELL_SIZE ), ( WIDTH, j*GRID_CELL_SIZE ), 1 )
+
+class Cursor(Element):
+    def __init__( self ):
+        self.surf = pg.Surface( ( CURSOR_SIZE, CURSOR_SIZE ) )
+        offset = ( CURSOR_SIZE ) / 2
+        pg.draw.line( self.surf, WHITE, ( 0, offset ), ( CURSOR_SIZE, offset ), CURSOR_WIDTH )
+        pg.draw.line( self.surf, WHITE, ( offset, 0 ), ( offset, CURSOR_SIZE ), CURSOR_WIDTH )
+
+        self._pos = vec2( 0, 0 )
+    
+    @property
+    def pos( self ):
+        return self._pos.copy()
+    
+    def update( self ):
+        mx, my = pg.mouse.get_pos()
+        self._pos.x = mx
+        self._pos.y = my
+
+        if pg.key.get_pressed()[pg.K_LSHIFT]:
+            Grid.snap_to_grid( self._pos )
+
+    def draw( self ):
+        screen.blit( self.surf, self._pos - vec2( CURSOR_SIZE / 2, CURSOR_SIZE / 2 ) )
+
+
+cursor = Cursor()
+
+
 class SelectionPanel(Element):
     def __init__( self, options: list[str] = [] ):
         super().__init__()
@@ -65,26 +138,25 @@ class SelectionPanel(Element):
 
         self.width *= FONT_SIZE
 
-        self.selected = -1
+        self.selected = 0
     
     def show( self ):
         self.shown = True
-        mx, my = pg.mouse.get_pos()
-        self.pos = vec2( mx, my )
+        self.pos = cursor.pos
     
     def hide( self ):
         self.shown = False
     
     def update( self ):
         if self.shown:
-            mx, my = pg.mouse.get_pos()
+
             for i, _ in enumerate( self.options ):
                 rect = [
                     self.pos.x + SELECTION_PANEL_OFFSET,
                     self.pos.y + i * ( FONT_SIZE + SELECTION_PANEL_PADDING ) + SELECTION_PANEL_OFFSET,
                     self.width, FONT_SIZE
                 ]
-                if pg.Rect( rect ).collidepoint( mx, my ):
+                if pg.Rect( rect ).collidepoint( cursor.pos.x, cursor.pos.y ):
                     self.selected = i
 
     def draw( self ):
@@ -94,19 +166,127 @@ class SelectionPanel(Element):
                 y = self.pos.y + i * ( FONT_SIZE + SELECTION_PANEL_PADDING ) + SELECTION_PANEL_OFFSET 
                 draw_text( option, ( x, y ), color=( YELLOW if self.selected == i else WHITE ) )
 
+class Point:
+    def __init__( self, pos: vec2 ):
+        self.pos = pos
+
+        self.is_selected = False
+
+    @property
+    def is_hovered( self ) -> bool:
+        return cursor.pos.distance_squared_to( self.pos ) <= POINT_SQR_RADIUS
+    
+    
+    def update( self ):
+        pass
+
+    def draw( self ):
+        pg.draw.circle( screen, POINT_COLOR, self.pos, POINT_RADIUS )
+
+        if self.is_hovered:
+            pg.draw.circle( screen, POINT_HOVER_COLOR, self.pos, POINT_RADIUS+3, width=2 )
+        if self.is_selected:
+            pg.draw.circle( screen, POINT_SELECTED_COLOR, self.pos, POINT_RADIUS+3, width=2 )
+
+class Points(Element):
+    def __init__( self ):
+        super().__init__()
+
+        self.points: list[Point] = []
+        self.connections: list[tuple[int, int]] = []
+
+        self.selected = -1
+
+    def is_connected_to_selected( self, point_id: int ):
+        for conn in self.connections:
+            if self.selected in conn and point_id in conn:
+                return True
+        return False
+
+    def connect_to_selected( self, point_id: int ):
+        if self.selected >= 0:
+            if self.is_connected_to_selected( point_id ):
+                return
+            self.connections.append( ( self.selected, point_id ) )
+
+    def add( self, point: Point ):
+        self.connect_to_selected( len( self.points ) )
+        self.points.append( point )
+    
+    def clear( self ):
+        self.points.clear()
+        self.connections.clear()
+    
+    
+    def remove_selected( self ):
+        if self.selected >= 0:
+            removed = []
+            for conn in self.connections:
+                if self.selected in conn:
+                    removed.append( conn )
+            for conn in removed:
+                self.connections.remove( conn )
+
+            self.points.pop( self.selected )
+            self.selected = -1
+    
+    def clear_selected( self ):
+        if self.selected >= 0:
+            self.points[self.selected].is_selected = False
+            self.selected = -1
+    
+    def update( self ):
+        for i, p in enumerate( self.points ):
+            if p.is_hovered:
+                if pg.mouse.get_pressed()[0]:
+                    self.clear_selected()
+                    p.is_selected = True
+                    self.selected = i
+                elif pg.mouse.get_pressed()[1]:
+                    if i != self.selected:
+                        self.connect_to_selected( i )
+            p.update()
+
+    def draw( self ):
+        for pi0, pi1 in self.connections:
+            pg.draw.line( screen, CONNECTION_COLOR, self.points[pi0].pos, self.points[pi1].pos )
+        for p in self.points:
+            p.draw()
+    
 
 running = True
 
 selection_panel = SelectionPanel(
     options=[
         'Add Point',
+        'Remove Point',
         'Add XY Anchor',
         'Add X Anchor',
-        'Add Y Anchor'
+        'Add Y Anchor',
+        'Clear',
     ]
 )
 
-elements = [ selection_panel ]
+points = Points()
+grid = Grid()
+
+elements = [
+    grid,
+    cursor,
+    points,
+    selection_panel,
+]
+
+
+def process_selection( selection ):
+    match selection:
+        case 0: # Add Point
+            points.add( Point( cursor.pos ) )
+        case 1: # Remvoe Point
+            points.remove_selected()
+        
+        case 5: # Clear
+            points.clear()
 
 while running:
     for event in pg.event.get():
@@ -114,11 +294,17 @@ while running:
             running = False
         
         if event.type == pg.KEYDOWN:
-            if event.key == pg.K_a:
-                selection_panel.show()
+            if event.key == pg.K_ESCAPE:
+                selection_panel.hide()
+                points.clear_selected()
         
         if event.type == pg.MOUSEBUTTONDOWN:
-            selection_panel.hide()
+            if event.button == 3:
+                selection_panel.show()
+
+            elif event.button == 1 and selection_panel.shown:
+                process_selection( selection_panel.selected )
+                selection_panel.hide()
 
     for element in elements:
         element.update()
