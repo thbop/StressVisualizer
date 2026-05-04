@@ -193,9 +193,9 @@ class Points(Element):
         super().__init__()
 
         self.points: list[Point] = []
-        self.connections: list[tuple[int, int]] = []
+        self.connections: list[tuple[Point, Point]] = []
 
-        self.selected = -1
+        self.selected = None
 
     def is_connected_to_selected( self, point_id: int ):
         for conn in self.connections:
@@ -203,23 +203,24 @@ class Points(Element):
                 return True
         return False
 
-    def connect_to_selected( self, point_id: int ):
-        if self.selected >= 0:
-            if self.is_connected_to_selected( point_id ):
+    def connect_to_selected( self, point ):
+        if self.selected:
+            if self.is_connected_to_selected( point ):
                 return
-            self.connections.append( ( self.selected, point_id ) )
+            self.connections.append( ( self.selected, point ) )
 
     def add( self, point: Point ):
-        self.connect_to_selected( len( self.points ) )
+        self.connect_to_selected( point )
         self.points.append( point )
     
     def clear( self ):
         self.points.clear()
         self.connections.clear()
+        self.selected = None
     
     
     def remove_selected( self ):
-        if self.selected >= 0:
+        if self.selected:
             removed = []
             for conn in self.connections:
                 if self.selected in conn:
@@ -227,29 +228,29 @@ class Points(Element):
             for conn in removed:
                 self.connections.remove( conn )
 
-            self.points.pop( self.selected )
-            self.selected = -1
+            self.points.remove( self.selected )
+            self.selected = None
     
     def clear_selected( self ):
-        if self.selected >= 0:
-            self.points[self.selected].is_selected = False
-            self.selected = -1
+        if self.selected:
+            self.selected.is_selected = False
+            self.selected = None
     
     def update( self ):
-        for i, p in enumerate( self.points ):
+        for p in self.points:
             if p.is_hovered:
                 if pg.mouse.get_pressed()[0]:
                     self.clear_selected()
                     p.is_selected = True
-                    self.selected = i
+                    self.selected = p
                 elif pg.mouse.get_pressed()[1]:
-                    if i != self.selected:
-                        self.connect_to_selected( i )
+                    if p != self.selected:
+                        self.connect_to_selected( p )
             p.update()
 
     def draw( self ):
-        for pi0, pi1 in self.connections:
-            pg.draw.line( screen, CONNECTION_COLOR, self.points[pi0].pos, self.points[pi1].pos )
+        for p0, p1 in self.connections:
+            pg.draw.line( screen, CONNECTION_COLOR, p0.pos, p1.pos )
         for p in self.points:
             p.draw()
     
