@@ -9,11 +9,12 @@ HEIGHT = 800
 FPS = 60
 
 BLACK = ( 0, 0, 0 )
+REALLY_DARK_GRAY = ( 10, 10, 10 )
+DARK_GRAY = ( 30, 30, 30 )
 WHITE = ( 255, 255, 255 )
 YELLOW = ( 255, 255, 0 )
 LIGHT_BLUE = ( 60, 220, 255 )
 MAGENTA = ( 255, 0, 255 )
-DARK_GRAY = ( 20, 20, 20 )
 GRAY = ( 100, 100, 100 )
 RED = ( 255, 0, 0 )
 
@@ -99,7 +100,7 @@ class Grid(Element):
 class Cursor(Element):
     def __init__( self ):
         self.surf = pg.Surface( ( CURSOR_SIZE, CURSOR_SIZE ) )
-        offset = ( CURSOR_SIZE ) / 2
+        offset = ( CURSOR_SIZE - CURSOR_WIDTH ) / 2
         pg.draw.line( self.surf, WHITE, ( 0, offset ), ( CURSOR_SIZE, offset ), CURSOR_WIDTH )
         pg.draw.line( self.surf, WHITE, ( offset, 0 ), ( offset, CURSOR_SIZE ), CURSOR_WIDTH )
 
@@ -118,7 +119,7 @@ class Cursor(Element):
             Grid.snap_to_grid( self._pos )
 
     def draw( self ):
-        screen.blit( self.surf, self._pos - vec2( CURSOR_SIZE / 2, CURSOR_SIZE / 2 ) )
+        screen.blit( self.surf, self._pos - vec2( CURSOR_SIZE / 2, CURSOR_SIZE / 2 ), special_flags=pg.BLEND_ADD )
 
 
 cursor = Cursor()
@@ -181,12 +182,12 @@ class Point:
         pass
 
     def draw( self ):
-        pg.draw.circle( screen, POINT_COLOR, self.pos, POINT_RADIUS )
+        pg.draw.aacircle( screen, POINT_COLOR, self.pos, POINT_RADIUS )
 
         if self.is_hovered:
-            pg.draw.circle( screen, POINT_HOVER_COLOR, self.pos, POINT_RADIUS+3, width=2 )
+            pg.draw.aacircle( screen, POINT_HOVER_COLOR, self.pos, POINT_RADIUS+4, width=2 )
         if self.is_selected:
-            pg.draw.circle( screen, POINT_SELECTED_COLOR, self.pos, POINT_RADIUS+3, width=2 )
+            pg.draw.aacircle( screen, POINT_SELECTED_COLOR, self.pos, POINT_RADIUS+4, width=2 )
 
 class Points(Element):
     def __init__( self ):
@@ -250,9 +251,10 @@ class Points(Element):
 
     def draw( self ):
         for p0, p1 in self.connections:
-            pg.draw.line( screen, CONNECTION_COLOR, p0.pos, p1.pos )
+            pg.draw.aaline( screen, CONNECTION_COLOR, p0.pos, p1.pos )
         for p in self.points:
             p.draw()
+
     
 
 running = True
@@ -310,7 +312,7 @@ while running:
     for element in elements:
         element.update()
 
-    screen.fill( BLACK )
+    screen.fill( REALLY_DARK_GRAY )
 
     for element in elements:
         element.draw()
