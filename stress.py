@@ -8,6 +8,8 @@ WIDTH = 1200
 HEIGHT = 800
 FPS = 60
 
+RAD2DEG = 180 / math.pi
+
 BLACK = ( 0, 0, 0 )
 REALLY_DARK_GRAY = ( 10, 10, 10 )
 DARK_GRAY = ( 30, 30, 30 )
@@ -57,7 +59,9 @@ def draw_text( text: str, pos: vec2, color=WHITE ):
     screen.blit( font.render( text, antialias=True, color=color ), [ pos.x, pos.y, 0, 0 ] )
 
 def cos_theta( a: vec2, b: vec2 ):
-    return a.dot( b )
+    if a.length_squared() * b.length_squared() == 0:
+        return 1
+    return a.normalize().dot( b.normalize() )
 
 def sin_theta( a: vec2, b: vec2 ):
     a_len = a.length()
@@ -188,6 +192,11 @@ class Point:
             pg.draw.aacircle( screen, POINT_HOVER_COLOR, self.pos, POINT_RADIUS+4, width=2 )
         if self.is_selected:
             pg.draw.aacircle( screen, POINT_SELECTED_COLOR, self.pos, POINT_RADIUS+4, width=2 )
+            d = cursor._pos - self.pos
+            angle = math.acos( cos_theta( vec2( 1, 0 ), d ) )
+            if d.y > 0:
+                angle = 2*math.pi - angle
+            draw_text( f'{(angle*RAD2DEG):.2f}°', self.pos + vec2( 5, 5 ) )
 
 class Points(Element):
     def __init__( self ):
