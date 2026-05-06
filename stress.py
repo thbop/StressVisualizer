@@ -38,6 +38,9 @@ POINT_HOVER_COLOR = LIGHT_BLUE
 POINT_SELECTED_COLOR = MAGENTA
 POINT_RADIUS = 6
 POINT_SQR_RADIUS = POINT_RADIUS*POINT_RADIUS
+POINT_ANCHOR_COLOR = YELLOW
+POINT_ANCHOR_LENGTH = GRID_CELL_SIZE
+POINT_ANCHOR_THICK = 3
 
 CONNECTION_COLOR = GRAY
 CONNECTION_STRESSED_COLOR = RED
@@ -176,6 +179,7 @@ class Point:
         self.pos = pos
 
         self.is_selected = False
+        self.anchor = [ False, False ]
 
     @property
     def is_hovered( self ) -> bool:
@@ -186,6 +190,11 @@ class Point:
         pass
 
     def draw( self ):
+        if self.anchor[0]: # Horizontal
+            pg.draw.line( screen, POINT_ANCHOR_COLOR, self.pos, self.pos + vec2( -POINT_ANCHOR_LENGTH, 0 ), POINT_ANCHOR_THICK )
+        if self.anchor[1]: # Vertical
+            pg.draw.line( screen, POINT_ANCHOR_COLOR, self.pos, self.pos + vec2( 0, -POINT_ANCHOR_LENGTH ), POINT_ANCHOR_THICK )
+
         pg.draw.aacircle( screen, POINT_COLOR, self.pos, POINT_RADIUS )
 
         if self.is_hovered:
@@ -272,9 +281,10 @@ selection_panel = SelectionPanel(
     options=[
         'Add Point',
         'Remove Point',
-        'Add XY Anchor',
-        'Add X Anchor',
-        'Add Y Anchor',
+        'Set XY Anchor',
+        'Set X Anchor',
+        'Set Y Anchor',
+        'Clear Anchor',
         'Clear',
     ]
 )
@@ -294,10 +304,22 @@ def process_selection( selection ):
     match selection:
         case 0: # Add Point
             points.add( Point( cursor.pos ) )
-        case 1: # Remvoe Point
+        case 1: # Remove Point
             points.remove_selected()
+        case 2: # Set XY Anchor
+            if points.selected:
+                points.selected.anchor = [ True, True ]
+        case 3: # Set X Anchor
+            if points.selected:
+                points.selected.anchor[0] = True
+        case 4: # Set Y Anchor
+            if points.selected:
+                points.selected.anchor[1] = True
+        case 5: # Clear Anchor
+            if points.selected:
+                points.selected.anchor = [ False, False ]
         
-        case 5: # Clear
+        case 6: # Clear
             points.clear()
 
 while running:
